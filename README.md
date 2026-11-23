@@ -29,7 +29,11 @@ Varsayılan: `admin` / `12345` (değiştirilebilir, `%AppData%\MetroKafe\admin.i
    - Klasör adındaki `[FitGirl]`, `(v1.2)`, ` - RUNE` gibi ekler temizlenir.
 3. **SteamGridDB**: oyun otomatik aranır (önce klasör adı, bulunamazsa exe'nin ürün adı, sonra exe adı).
    10 adet 2:3 kapak ve 10 ikon gösterilir; tıklayıp seç. Ad, SteamGridDB'deki adla doldurulur.
-4. **Hazırla**: seçilen kapak `MetroKafeCover.png`, ikon `ico.ico` (256/64/48/32/16) olarak yazılır, `MetroKafe.ini`
+4. **Ek exe'ler** (ör. Half-Life: Blue Shift, Opposing Force): Exe'nin yanındaki **+** ile ekle veya ek exe'yi
+   "Ek exe'ler" alanına sürükle. Her satırda ad, exe, argüman ve ikon var; ikon yerel dosyadan ("İkon seç") ya da
+   satırdaki adla SteamGridDB'de aranarak ("SteamGrid'de ara") seçilir. Her biri masaüstüne ayrı kısayol olur,
+   ikonları `ico2.ico`, `ico3.ico`... olarak kaydedilir.
+5. **Hazırla**: seçilen kapak `MetroKafeCover.png`, ikon `ico.ico` (256/64/48/32/16) olarak yazılır, `MetroKafe.ini`
    oluşturulur, program klasöre `MetroKafe.exe` olarak kopyalanır, MD5 listesi çıkarılır, istenirse ISO oluşturulur
    (Windows'un kendi IMAPI2 bileşeniyle, UDF, 4 GB üstü dosyalar desteklenir).
 

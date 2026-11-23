@@ -32,7 +32,9 @@ namespace MetroKafe.UI
         private readonly TextBox _docs = Theme.TextBox();
         private readonly TextBox _reg = Theme.TextBox();
         private readonly CheckBox _defender = Theme.CheckBox("Defender istisnası ekle", true);
-        private readonly DataGridView _shortcuts = new DataGridView();
+        private readonly FlowLayoutPanel _extras = new FlowLayoutPanel();
+        private readonly Label _extrasHint = Theme.Label("", Theme.Small, Theme.Muted);
+        private readonly Button _addExe = Theme.Button("+", true);
         private readonly CheckBox _doMd5 = Theme.CheckBox("MD5 listesi oluştur", true);
         private readonly CheckBox _doCleanup = Theme.CheckBox("Eski bat sistemi dosyalarını sil", false);
         private readonly CheckBox _doIso = Theme.CheckBox("ISO oluştur:", false);
@@ -81,7 +83,7 @@ namespace MetroKafe.UI
                 Cursor = Cursors.Hand,
                 UseMnemonic = false,
             };
-            _drop.SetBounds(0, 34, ColW, 84);
+            _drop.SetBounds(0, 34, ColW, 70);
             _drop.Paint += (s, e) =>
             {
                 using (var p = new Pen(Theme.Accent, 2) { DashStyle = DashStyle.Dash })
@@ -90,36 +92,44 @@ namespace MetroKafe.UI
             _drop.Click += async (s, e) => await BrowseExe();
             Controls.Add(_drop);
 
-            int y = 132;
+            int y = 116;
             Row("Oyun klasörü", _folder, y, ColW - 120 - 62);
             var browse = Theme.Button("Seç");
             browse.SetBounds(ColW - 56, y - 1, 56, 28);
             browse.Click += async (s, e) => await BrowseFolder();
             Controls.Add(browse);
             y += 34; Row("Oyun adı", _name, y);
-            y += 34; Row("Exe", _exe, y);
+            y += 34; Row("Exe", _exe, y, ColW - 120 - 40);
+            _addExe.SetBounds(ColW - 34, y - 1, 34, 28);
+            _addExe.Font = Theme.Subtitle;
+            _addExe.Click += (s, e) => AddExtraExe();
+            Controls.Add(_addExe);
             y += 34; Row("Argüman", _args, y);
-            y += 34; Row("İkon", _icon, y);
+
+            y += 34;
+            var sl = Theme.Label("Ek exe'ler (her biri masaüstüne ayrı kısayol)", Theme.Small, Theme.Muted);
+            sl.Location = new Point(0, y);
+            Controls.Add(sl);
+            _extras.SetBounds(0, y + 18, ColW, 160);
+            _extras.FlowDirection = FlowDirection.TopDown;
+            _extras.WrapContents = false;
+            _extras.AutoScroll = true;
+            _extras.BackColor = Theme.Back;
+            _extrasHint.Text = "Ek exe yok. Exe'nin yanındaki + ile ekleyin\nveya ek exe'yi bu alana sürükleyin.";
+            _extrasHint.Location = new Point(4, y + 24);
+            Controls.Add(_extrasHint);
+            Controls.Add(_extras);
+            _extrasHint.BringToFront();
+
+            y += 186; Row("İkon", _icon, y);
             y += 34; Row("Kapak", _cover, y);
             y += 34; Row("Belgelerim kaynağı", _docs, y);
             y += 34; Row("Reg dosyası", _reg, y);
-            y += 34;
+            y += 32;
             _defender.Location = new Point(120, y);
             Controls.Add(_defender);
 
-            y += 32;
-            var sl = Theme.Label("Ek masaüstü kısayolları (ana kısayol yukarıdaki Exe'dir)", Theme.Small, Theme.Muted);
-            sl.Location = new Point(0, y);
-            Controls.Add(sl);
-            _shortcuts.SetBounds(0, y + 20, ColW, 96);
-            Theme.StyleGrid(_shortcuts);
-            _shortcuts.Columns.Add("ad", "Kısayol adı");
-            _shortcuts.Columns.Add("hedef", "Hedef");
-            _shortcuts.Columns.Add("arg", "Argüman");
-            _shortcuts.Columns.Add("ikon", "İkon");
-            Controls.Add(_shortcuts);
-
-            y += 126;
+            y += 30;
             _doMd5.Location = new Point(0, y);
             _doCleanup.Location = new Point(180, y);
             y += 28;
@@ -127,7 +137,7 @@ namespace MetroKafe.UI
             _isoPath.SetBounds(112, y - 2, ColW - 112, 26);
             Controls.AddRange(new Control[] { _doMd5, _doCleanup, _doIso, _isoPath });
 
-            y += 38;
+            y += 34;
             _bar.SetBounds(0, y, ColW, 10);
             _status.AutoSize = false;
             _status.AutoEllipsis = true;
@@ -183,6 +193,11 @@ namespace MetroKafe.UI
 
         private void EnableDrop(Control c)
         {
+            if (c == _extras || c is ExtraExeRow)
+            {
+                EnableExtraDrop(c);
+                return;
+            }
             c.AllowDrop = true;
             c.DragEnter += (s, e) =>
             {
@@ -197,6 +212,86 @@ namespace MetroKafe.UI
                     await LoadPathAsync(files[0]);
             };
             foreach (Control child in c.Controls) EnableDrop(child);
+        }
+
+        /// <summary>Ek exe alanına bırakılan dosya oyunu değiştirmez, yeni ek exe satırı ekler.</summary>
+        private void EnableExtraDrop(Control c)
+        {
+            c.AllowDrop = true;
+            c.DragEnter += (s, e) =>
+                e.Effect = e.Data.GetDataPresent(DataFormats.FileDrop) && !_owner.Busy && Folder.Length > 0 ? DragDropEffects.Copy : DragDropEffects.None;
+            c.DragDrop += (s, e) =>
+            {
+                if (!(e.Data.GetData(DataFormats.FileDrop) is string[] files)) return;
+                foreach (var f in files.Where(File.Exists))
+                {
+                    var row = AddExtraRow(null);
+                    if (!row.IsInGame(f))
+                    {
+                        RemoveExtraRow(row);
+                        Status("Ek exe oyun klasörünün içinde olmalı: " + Path.GetFileName(f), Theme.Bad);
+                        continue;
+                    }
+                    row.SetExe(f);
+                }
+            };
+            foreach (Control child in c.Controls) EnableExtraDrop(child);
+        }
+
+        // ------------------------------------------------------------------ ek exe'ler
+
+        private IEnumerable<ExtraExeRow> ExtraRows => _extras.Controls.OfType<ExtraExeRow>();
+
+        private ExtraExeRow AddExtraRow(ShortcutInfo s)
+        {
+            var row = new ExtraExeRow(() => Folder, () => _name.Text.Trim(), _exe.Items.Cast<object>().ToArray());
+            if (s != null) row.Fill(s);
+            row.RemoveRequested += RemoveExtraRow;
+            _extras.Controls.Add(row);
+            EnableExtraDrop(row);
+            _extrasHint.Visible = false;
+            _extras.ScrollControlIntoView(row);
+            return row;
+        }
+
+        private void RemoveExtraRow(ExtraExeRow row)
+        {
+            _extras.Controls.Remove(row);
+            row.Dispose();
+            _extrasHint.Visible = !ExtraRows.Any();
+        }
+
+        private void ClearExtraRows()
+        {
+            foreach (var r in ExtraRows.ToList()) RemoveExtraRow(r);
+        }
+
+        /// <summary>"+" butonu: yeni satır ekler ve exe seçtirir; vazgeçilirse satır kaldırılır.</summary>
+        private void AddExtraExe()
+        {
+            if (_owner.Busy) return;
+            if (Folder.Length == 0 || !Directory.Exists(Folder))
+            {
+                Status("Önce oyunun ana exe dosyasını sürükleyin.", Theme.Bad);
+                return;
+            }
+            var row = AddExtraRow(null);
+            if (!row.BrowseExe()) RemoveExtraRow(row);
+            else row.NameBox.Focus();
+        }
+
+        /// <summary>Ek exe'lerin yeni seçilen ikonlarını ico2.ico, ico3.ico... olarak yazar.</summary>
+        private void SaveExtraIcons(GameConfig cfg, List<ExtraExeRow> rows)
+        {
+            for (int i = 0; i < rows.Count; i++)
+            {
+                if (rows[i].NewIcon == null) continue;
+                var file = "ico" + (i + 2) + ".ico";
+                ImageTools.SaveIco(rows[i].NewIcon, cfg.ResolvePath(file));
+                rows[i].NewIcon = null;
+                rows[i].IconPath = file;
+                cfg.ExtraShortcuts[i].Icon = file;
+            }
         }
 
         private async Task BrowseExe()
@@ -271,8 +366,8 @@ namespace MetroKafe.UI
             _docs.Text = cfg.DocumentsSource;
             _reg.Text = cfg.RegFile;
             _defender.Checked = cfg.DefenderExclusion;
-            _shortcuts.Rows.Clear();
-            foreach (var s in cfg.ExtraShortcuts) _shortcuts.Rows.Add(s.Name, s.Target, s.Arguments, s.Icon);
+            ClearExtraRows();
+            foreach (var s in cfg.ExtraShortcuts) AddExtraRow(s);
             _isoPath.Text = Path.Combine(Path.GetDirectoryName(folder) ?? folder, cfg.FolderName + ".iso");
             _bar.Value = 0;
             _status.ForeColor = Theme.Muted;
@@ -340,6 +435,7 @@ namespace MetroKafe.UI
                 Selected = selected,
                 Placeholder = isCover ? "yükleniyor" : "...",
             };
+            if (isCover) t.Margin = new Padding(0, 0, 6, 8); // 5 kapak + dikey kaydırma çubuğu yan yana sığsın
             if (!isCover && caption.Length > 0) t.Size = new Size(50, 68);
             if (!isCover) t.Caption = caption;
             t.Click += (s, e) =>
@@ -499,17 +595,10 @@ namespace MetroKafe.UI
                 DefenderExclusion = _defender.Checked,
                 Installed = false,
             };
-            foreach (DataGridViewRow r in _shortcuts.Rows)
+            foreach (var row in ExtraRows)
             {
-                if (r.IsNewRow) continue;
-                var s = new ShortcutInfo
-                {
-                    Name = (r.Cells[0].Value as string ?? "").Trim(),
-                    Target = (r.Cells[1].Value as string ?? "").Trim(),
-                    Arguments = (r.Cells[2].Value as string ?? "").Trim(),
-                    Icon = (r.Cells[3].Value as string ?? "").Trim(),
-                };
-                if (s.Name.Length > 0 && s.Target.Length > 0) cfg.ExtraShortcuts.Add(s);
+                var sc = row.ToShortcut();
+                if (sc.Name.Length > 0 && sc.Target.Length > 0) cfg.ExtraShortcuts.Add(sc);
             }
             return cfg;
         }
@@ -520,10 +609,14 @@ namespace MetroKafe.UI
             if (Folder.Length == 0 || !Directory.Exists(Folder)) { Status("Önce oyunun exe dosyasını sürükleyin.", Theme.Bad); return; }
             var cfg = BuildConfig();
             if (cfg.Name.Length == 0) { Status("Oyun adı boş olamaz.", Theme.Bad); return; }
-            if (cfg.Exe.Length == 0 || !File.Exists(cfg.ResolvePath(cfg.Exe)))
+            var extraRows = ExtraRows.Where(r => { var sc = r.ToShortcut(); return sc.Name.Length > 0 && sc.Target.Length > 0; }).ToList();
+            if (ExtraRows.Any(r => !r.IsEmpty && !extraRows.Contains(r))) { Status("Ek exe satırlarında ad veya exe eksik.", Theme.Bad); return; }
+            var missing = new[] { cfg.Exe }.Concat(cfg.ExtraShortcuts.Select(x => x.Target))
+                .Where(x => x.Length == 0 || !File.Exists(cfg.ResolvePath(x))).ToList();
+            if (missing.Count > 0)
             {
-                if (MessageBox.Show(FindForm(), $"Exe bulunamadı: {cfg.Exe}\nYine de devam edilsin mi?", "Uyarı",
-                        MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+                if (MessageBox.Show(FindForm(), "Bulunamayan exe:\n" + string.Join("\n", missing.Select(m => m.Length == 0 ? "(boş)" : m)) +
+                        "\n\nYine de devam edilsin mi?", "Uyarı", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
             }
 
             _owner.Busy = true;
@@ -537,6 +630,7 @@ namespace MetroKafe.UI
             {
                 if (_doCleanup.Checked) CleanupLegacy();
                 await SaveSelectedImages(cfg);
+                SaveExtraIcons(cfg, extraRows);
 
                 cfg.Save();
                 var ownTarget = Path.Combine(Folder, GameConfig.ExeFileName);
