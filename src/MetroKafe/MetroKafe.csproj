@@ -7,7 +7,7 @@
     <Nullable>disable</Nullable>
     <AssemblyName>MetroKafe</AssemblyName>
     <RootNamespace>MetroKafe</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Product>Metro Kafe Oyun Kurulum</Product>
     <Company>Metro Internet Kafe</Company>
     <ApplicationManifest>app.manifest</ApplicationManifest>

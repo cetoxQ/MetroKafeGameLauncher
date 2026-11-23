@@ -435,6 +435,7 @@ namespace MetroKafe.UI
             {
                 await Updater.ApplyAsync(_info, new Progress<int>(p => _bar.Value = p));
                 _status.Text = "Güncellendi, program yeniden başlatılıyor...";
+                _owner.Busy = false;
                 Application.Exit();
             }
             catch (Exception ex)

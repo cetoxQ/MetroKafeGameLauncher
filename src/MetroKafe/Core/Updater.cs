@@ -31,7 +31,7 @@ namespace MetroKafe.Core
 
         private static WebClient NewClient()
         {
-            var wc = new WebClient();
+            var wc = new WebClient { Encoding = System.Text.Encoding.UTF8 };
             wc.Headers[HttpRequestHeader.UserAgent] = "MetroKafe/" + AppInfo.Version;
             return wc;
         }
@@ -115,7 +115,8 @@ namespace MetroKafe.Core
         public static void CleanupOld()
         {
             var old = AppInfo.ExePath + ".old";
-            for (int i = 0; i < 10 && File.Exists(old); i++)
+            // Eski süreç kapanırken birkaç saniye kilitli kalabilir.
+            for (int i = 0; i < 30 && File.Exists(old); i++)
             {
                 try { File.Delete(old); }
                 catch { Thread.Sleep(300); }
