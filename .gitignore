@@ -1,0 +1,8 @@
+bin/
+obj/
+dist/
+.vs/
+*.user
+
+# Eski bat dosyaları (içinde RAR şifresi var) ve üçüncü parti araçlar
+sample/
