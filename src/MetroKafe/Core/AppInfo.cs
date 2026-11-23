@@ -46,12 +46,21 @@ namespace MetroKafe.Core
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
         private static extern int GetLongPathName(string shortPath, StringBuilder longPath, int bufferSize);
 
-        /// <summary>Admin ayarlarının saklandığı klasör (bilgisayar başına).</summary>
+        public static bool IsAdmin
+        {
+            get
+            {
+                using (var id = System.Security.Principal.WindowsIdentity.GetCurrent())
+                    return new System.Security.Principal.WindowsPrincipal(id).IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+            }
+        }
+
+        /// <summary>Ayarların ve admin şifresinin saklandığı klasör (%AppData%\MetroKafe).</summary>
         public static string DataFolder
         {
             get
             {
-                var d = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "MetroKafe");
+                var d = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MetroKafe");
                 Directory.CreateDirectory(d);
                 return d;
             }

@@ -11,17 +11,33 @@ Program açıldığında yanındaki `MetroKafe.ini` dosyasına bakar:
 |---|---|
 | `[Durum] Kurulu=0` (ISO içindeki kopya) | **Kurulum ekranı**: disk seçimi (1, 2... + Enter), kopyalama, kayıtlar, kısayollar |
 | `[Durum] Kurulu=1` (kurulmuş oyundaki kopya) | **Oyun ekranı**: başlat, dosyaları doğrula, onar, kısayolları yenile, kaldır |
-| ini yok | Bilgi ekranı (admin panelinden hazırlanır) |
+| ini yok (kendi klasöründe) | **Hazırlama aracı**: oyun hazırlama, ayarlar, güncelleme |
 
-Sol alttaki sürüm numarasına **3 kez tıklayınca** admin girişi açılır. Varsayılan: `admin` / `12345`
-(admin panelinden değiştirilebilir, bilgisayar başına `%ProgramData%\MetroKafe\admin.ini` içinde saklanır).
+Kurulum/doğrulama ekranları kendini yönetici olarak yeniden başlatır (Defender, kayıt defteri için).
+Hazırlama aracı yönetici izni istemez; Windows, yönetici olarak çalışan pencerelere Explorer'dan sürükle-bırakı engeller.
 
-## Oyun hazırlama (admin paneli → Oyun Hazırla)
+Kurulum/doğrulama ekranında sol alttaki sürüm numarasına **3 kez tıklayınca** admin girişi açılır.
+Varsayılan: `admin` / `12345` (değiştirilebilir, `%AppData%\MetroKafe\admin.ini` içinde saklanır).
 
-1. Programı oyun klasörüne kopyalayıp aç ya da panelden klasörü seç.
-2. Oyun adı, exe, ek kısayollar vb. doldur.
-3. **Hazırla**: `MetroKafe.ini` yazılır, program klasöre `MetroKafe.exe` olarak kopyalanır, MD5 listesi çıkarılır,
-   istenirse ISO oluşturulur (Windows'un kendi IMAPI2 bileşeniyle, UDF, 4 GB üstü dosyalar desteklenir).
+## Oyun hazırlama
+
+1. `MetroKafe.exe`'yi kendi klasöründe aç.
+2. Oyunun exe dosyasını pencereye **sürükle-bırak** (veya kutuya tıklayıp seç, ya da exe'yi `MetroKafe.exe`'nin üzerine bırak).
+   - Oyun klasörü: exe `bin`, `win_x64`, `x64`, `Binaries` gibi klasörlerdeyse yukarı çıkılır
+     (`ets2\bin\win_x64\eurotrucks2.exe` → `ets2`). Liste **Ayarlar**'dan değiştirilebilir.
+   - Unreal oyunlarında (`Oyun\Proje\Binaries\Win64\x.exe`) yanında `Engine` klasörü olan üst klasör alınır.
+   - Klasör adındaki `[FitGirl]`, `(v1.2)`, ` - RUNE` gibi ekler temizlenir.
+3. **SteamGridDB**: oyun otomatik aranır (önce klasör adı, bulunamazsa exe'nin ürün adı, sonra exe adı).
+   10 adet 2:3 kapak ve 10 ikon gösterilir; tıklayıp seç. Ad, SteamGridDB'deki adla doldurulur.
+4. **Hazırla**: seçilen kapak `MetroKafeCover.png`, ikon `ico.ico` (256/64/48/32/16) olarak yazılır, `MetroKafe.ini`
+   oluşturulur, program klasöre `MetroKafe.exe` olarak kopyalanır, MD5 listesi çıkarılır, istenirse ISO oluşturulur
+   (Windows'un kendi IMAPI2 bileşeniyle, UDF, 4 GB üstü dosyalar desteklenir).
+
+### Ayarlar
+
+`%AppData%\MetroKafe\ayarlar.ini` içinde saklanır: atlanacak klasör adları, Unreal tanıma, SteamGridDB API anahtarı,
+kapak/ikon adedi. API anahtarı programın veya bu deponun içinde **yoktur**; ilk kullanımda Ayarlar'dan girilir
+(steamgriddb.com → Preferences → API).
 
 ### MetroKafe.ini örneği
 

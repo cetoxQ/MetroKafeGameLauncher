@@ -6,7 +6,7 @@ using System.Text;
 namespace MetroKafe.Core
 {
     /// <summary>
-    /// Admin kullanıcı adı/şifresi. Bilgisayar başına %ProgramData%\MetroKafe\admin.ini içinde
+    /// Admin kullanıcı adı/şifresi. %AppData%\MetroKafe\admin.ini içinde
     /// tuzlanmış SHA-256 olarak saklanır. Dosya yoksa varsayılan admin / 12345 geçerlidir.
     /// </summary>
     public static class AdminAuth

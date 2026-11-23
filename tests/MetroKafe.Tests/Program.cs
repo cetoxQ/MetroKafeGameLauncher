@@ -19,6 +19,21 @@ internal static class Program
         if (!ok) _fail++;
     }
 
+    [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private static extern IntPtr LoadImage(IntPtr hinst, string name, uint type, int cx, int cy, uint load);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool DestroyIcon(IntPtr h);
+
+    /// <summary>Windows'un (masaüstü/kısayol) ikonu istenen boyutta yükleyip yükleyemediği.</summary>
+    private static int WinIconWidth(string path, int size)
+    {
+        var h = LoadImage(IntPtr.Zero, path, 1 /*IMAGE_ICON*/, size, size, 0x10 /*LR_LOADFROMFILE*/);
+        if (h == IntPtr.Zero) return 0;
+        try { using (var icon = Icon.FromHandle(h)) return icon.Width; }
+        finally { DestroyIcon(h); }
+    }
+
     private static int Main(string[] args)
     {
         Console.OutputEncoding = Encoding.UTF8;
@@ -125,6 +140,77 @@ internal static class Program
         tc = GameConfig.Load(target);
         Check(tc.Installed && tc.SourcePath == game && tc.ExtraShortcuts.Count == 1, "Kurulu=1 kaydedildi, diğer alanlar korundu");
         Check(Verifier.Verify(target, null, CancellationToken.None).AllOk, "ini değişince doğrulama bozulmuyor");
+
+        Console.WriteLine("oyun klasörünü bulma");
+        var settings = new AppSettings();
+        string Exe(string rel)
+        {
+            var p = Path.Combine(root, "oyunlar", rel);
+            Directory.CreateDirectory(Path.GetDirectoryName(p));
+            File.WriteAllText(p, "");
+            return p;
+        }
+        string Name(string exe) => Path.GetFileName(GameLocator.FindGameFolder(exe, settings));
+        Check(Name(Exe(@"ets2\bin\win_x64\eurotrucks2.exe")) == "ets2", @"ets2\bin\win_x64 → ets2");
+        Check(Name(Exe(@"The Witcher 3\bin\x64\witcher3.exe")) == "The Witcher 3", @"bin\x64 → The Witcher 3");
+        Check(Name(Exe(@"UT2004\System\UT2004.exe")) == "UT2004", @"System → UT2004");
+        Check(Name(Exe(@"Hades\Hades.exe")) == "Hades", "kökteki exe");
+        Directory.CreateDirectory(Path.Combine(root, "oyunlar", @"Hogwarts Legacy\Engine"));
+        Check(Name(Exe(@"Hogwarts Legacy\Phoenix\Binaries\Win64\HogwartsLegacy.exe")) == "Hogwarts Legacy", "Unreal: Engine klasörlü üst klasör");
+        settings.DetectUnreal = false;
+        Check(Name(Exe(@"Hogwarts Legacy\Phoenix\Binaries\Win64\HogwartsLegacy.exe")) == "Phoenix", "Unreal tanıma kapalı");
+        settings.SkipFolders.Add("Oyun Dosyalari");
+        Check(Name(Exe(@"Ozel\Oyun Dosyalari\a.exe")) == "Ozel", "ayarlardan eklenen klasör");
+
+        Console.WriteLine("ad temizleme");
+        Check(GameLocator.CleanName("Euro Truck Simulator 2 [FitGirl Repack]") == "Euro Truck Simulator 2", "[FitGirl Repack]");
+        Check(GameLocator.CleanName("Hades (v1.38290)") == "Hades", "(v1.38290)");
+        Check(GameLocator.CleanName("Elden Ring - RUNE") == "Elden Ring", "- RUNE");
+        Check(GameLocator.CleanName("Red.Dead.Redemption.2") == "Red Dead Redemption 2", "noktalı ad");
+        Check(GameLocator.CleanName("ets2") == "ets2", "kısa ad aynı kalır");
+
+        Console.WriteLine("ikon");
+        using (var bmp = new Bitmap(300, 200))
+        {
+            using (var g = Graphics.FromImage(bmp)) g.Clear(Color.Orange);
+            var ico = ImageTools.BuildIco(bmp);
+            var icoPath = Path.Combine(root, "test.ico");
+            File.WriteAllBytes(icoPath, ico);
+            using (var big = ImageTools.Load(ico)) Check(big.Width == 256, "ico 256 boyutu");
+            Check(WinIconWidth(icoPath, 256) == 256 && WinIconWidth(icoPath, 32) == 32, "Windows ico'yu 256 ve 32 olarak okuyor");
+            using (var small = new Icon(icoPath, 16, 16)) Check(small.Width == 16, "ico 16 boyutu");
+            var hiddenIco = Path.Combine(root, "gizli.ico");
+            File.WriteAllBytes(hiddenIco, new byte[] { 1 });
+            File.SetAttributes(hiddenIco, FileAttributes.Hidden);
+            using (var ms = new MemoryStream()) { bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png); ImageTools.SaveIco(ms.ToArray(), hiddenIco); }
+            Check(ImageTools.IsIco(File.ReadAllBytes(hiddenIco)), "gizli eski ikonun üzerine yazıldı");
+        }
+
+        var key = AppSettings.Load().SteamGridKey;
+        if (key.Length > 0)
+        {
+            Console.WriteLine("SteamGridDB (canlı)");
+            var sg = new SteamGrid(key);
+            Check(sg.SearchAsync("ets2").Result.Count == 0, "\"ets2\" sonuç vermiyor (yedek arama gerekli)");
+            var games = sg.SearchAsync("Euro Truck Simulator 2").Result;
+            Check(games.Count > 0 && games[0].Name == "Euro Truck Simulator 2", "Euro Truck Simulator 2 bulundu");
+            var grids = sg.GridsAsync(games[0].Id, 10).Result;
+            var icons = sg.IconsAsync(games[0].Id, 10).Result;
+            Check(grids.Count == 10, "10 kapak");
+            Check(icons.Count > 0, icons.Count + " ikon");
+            using (var img = ImageTools.Load(sg.DownloadAsync(grids[0].Url).Result))
+                Check(img.Width == 600 && img.Height == 900, "kapak 600x900");
+            var coverPath = Path.Combine(root, "MetroKafeCover.png");
+            ImageTools.SaveCoverPng(sg.DownloadAsync(grids[1].Url).Result, coverPath);
+            Check(File.Exists(coverPath), "kapak PNG kaydedildi");
+            foreach (var ic in icons.Take(3))
+            {
+                var p = Path.Combine(root, "sg.ico");
+                ImageTools.SaveIco(sg.DownloadAsync(ic.Url).Result, p);
+                using (var i = new Icon(p, 256, 256)) Check(i.Width > 0, "ikon kaydedildi (" + ic.Mime + ")");
+            }
+        }
+        else Console.WriteLine("SteamGridDB testi atlandı (API anahtarı yok)");
 
         Console.WriteLine(_fail == 0 ? "\nTÜM TESTLER GEÇTİ" : $"\n{_fail} TEST BAŞARISIZ");
         return _fail;
